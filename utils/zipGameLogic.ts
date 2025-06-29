@@ -1,4 +1,4 @@
-// utils/zipGameLogic.ts
+// utils/zipGameLogic.ts - Improved version with better grid selection and revisiting
 import { GameGrid, GridCell, Level, NumberCell, PathPoint, ValidationResult } from '@/types';
 
 export class ZipGameEngine {
@@ -86,6 +86,83 @@ export class ZipGameEngine {
     return true;
   }
 
+  // NEW: Method to handle clicking on any grid cell (including already selected ones)
+  public handleCellClick(x: number, y: number): ValidationResult {
+    const cell = this.grid.cells[y]?.[x];
+    if (!cell) {
+      return { isValid: false, reason: 'Out of bounds' };
+    }
+
+    // If no path exists, try to start
+    if (this.currentPath.length === 0) {
+      if (this.startPath(x, y)) {
+        return { isValid: true, reason: 'Started new path' };
+      } else {
+        return { isValid: false, reason: 'Must start at number 1' };
+      }
+    }
+
+    // Check if user clicked on an already selected cell to revisit/truncate path
+    const existingIndex = this.currentPath.findIndex(point => point.x === x && point.y === y);
+    if (existingIndex !== -1) {
+      return this.truncatePathTo(existingIndex);
+    }
+
+    // Otherwise, try to add to path
+    return this.addToPath(x, y);
+  }
+
+  // NEW: Method to truncate path to a specific point (for revisiting)
+  private truncatePathTo(index: number): ValidationResult {
+    if (index < 0 || index >= this.currentPath.length) {
+      return { isValid: false, reason: 'Invalid path index' };
+    }
+
+    // If clicking on the last point, no change needed
+    if (index === this.currentPath.length - 1) {
+      return { isValid: true, reason: 'Already at this position' };
+    }
+
+    // Remove all points after the clicked point
+    const pointsToRemove = this.currentPath.slice(index + 1);
+    this.currentPath = this.currentPath.slice(0, index + 1);
+
+    // Clear the removed points from the grid
+    pointsToRemove.forEach(point => {
+      const cell = this.grid.cells[point.y][point.x];
+      cell.isInPath = false;
+      cell.pathOrder = undefined;
+      
+      // If it's a number cell, mark as unvisited
+      if (cell.type === 'number') {
+        const numberCell = this.grid.numbers.find(n => n.x === point.x && n.y === point.y);
+        if (numberCell) {
+          numberCell.isVisited = false;
+        }
+        // Update current number to the last visited number + 1
+        this.currentNumber = cell.number! + 1;
+      }
+    });
+
+    // Recalculate current number based on the last number in path
+    this.recalculateCurrentNumber();
+
+    console.log(`Truncated path to point (${this.currentPath[index].x}, ${this.currentPath[index].y})`);
+    return { isValid: true, reason: 'Path truncated' };
+  }
+
+  // NEW: Recalculate current number based on visited numbers
+  private recalculateCurrentNumber(): void {
+    let highestVisitedNumber = 0;
+    this.currentPath.forEach(point => {
+      const cell = this.grid.cells[point.y][point.x];
+      if (cell.type === 'number' && cell.number !== undefined) {
+        highestVisitedNumber = Math.max(highestVisitedNumber, cell.number);
+      }
+    });
+    this.currentNumber = highestVisitedNumber + 1;
+  }
+
   public addToPath(x: number, y: number): ValidationResult {
     if (this.currentPath.length === 0) {
       return { isValid: false, reason: 'Must start at number 1' };
@@ -101,10 +178,16 @@ export class ZipGameEngine {
       return { isValid: false, reason: 'Cannot move through walls' };
     }
 
-    // Allow revisiting cells - remove the restriction
-    // if (cell.isInPath) {
-    //   return { isValid: false, reason: 'Cannot revisit cells' };
-    // }
+    // Check if cell is already in path (should be handled by handleCellClick)
+    if (cell.isInPath) {
+      return { isValid: false, reason: 'Cell already in path' };
+    }
+
+    // NEW: Check adjacency - cells must be adjacent to the last cell in path
+    const lastPoint = this.currentPath[this.currentPath.length - 1];
+    if (!this.isAdjacent(lastPoint.x, lastPoint.y, x, y)) {
+      return { isValid: false, reason: 'Must select adjacent cells' };
+    }
 
     // If this is a numbered cell, check special rules
     if (cell.type === 'number') {
@@ -136,13 +219,50 @@ export class ZipGameEngine {
       this.currentNumber++;
     }
 
-    // Add to path (allow revisiting)
+    // Add to path
     const pathOrder = this.currentPath.length + 1;
     this.currentPath.push({ x, y, pathOrder });
     this.updateCellPath(x, y, pathOrder);
 
     console.log(`Added to path: (${x}, ${y}) - order: ${pathOrder}`);
     return { isValid: true };
+  }
+
+  // NEW: Get all selectable cells (non-wall cells)
+  public getSelectableCells(): GridCell[] {
+    return this.getAllCells().filter(cell => cell.type !== 'wall');
+  }
+
+  // NEW: Check if a cell can be selected next
+  public canSelectCell(x: number, y: number): boolean {
+    const cell = this.grid.cells[y]?.[x];
+    if (!cell || cell.type === 'wall') {
+      return false;
+    }
+
+    // If no path, can only select number 1
+    if (this.currentPath.length === 0) {
+      return cell.type === 'number' && cell.number === 1;
+    }
+
+    // Can always click on already selected cells (for revisiting)
+    if (cell.isInPath) {
+      return true;
+    }
+
+    // Must be adjacent to last cell
+    const lastPoint = this.currentPath[this.currentPath.length - 1];
+    if (!this.isAdjacent(lastPoint.x, lastPoint.y, x, y)) {
+      return false;
+    }
+
+    // If it's a number, must be the next expected number
+    if (cell.type === 'number') {
+      return cell.number === this.currentNumber;
+    }
+
+    // Empty cells are always selectable if adjacent
+    return true;
   }
 
   public canCompleteFromCurrentPosition(): boolean {
@@ -239,8 +359,14 @@ export class ZipGameEngine {
 
     if (finalNumberCell && this.currentNumber === maxNumber && unfilledCells.length > 0) {
       // If we're trying to reach the final number but have unfilled cells,
-      // suggest moving to any unfilled cell
-      return { x: unfilledCells[0].x, y: unfilledCells[0].y };
+      // suggest moving to any unfilled cell that's adjacent
+      const lastPoint = this.currentPath[this.currentPath.length - 1];
+      const adjacentUnfilled = unfilledCells.filter(cell => 
+        this.isAdjacent(lastPoint.x, lastPoint.y, cell.x, cell.y)
+      );
+      if (adjacentUnfilled.length > 0) {
+        return { x: adjacentUnfilled[0].x, y: adjacentUnfilled[0].y };
+      }
     }
 
     // Prioritize the next number if we've filled required cells
@@ -252,13 +378,23 @@ export class ZipGameEngine {
           return { x: nextNumberCell.x, y: nextNumberCell.y };
         }
       } else {
-        return { x: nextNumberCell.x, y: nextNumberCell.y };
+        // Check if the next number is reachable
+        const lastPoint = this.currentPath[this.currentPath.length - 1];
+        if (this.isAdjacent(lastPoint.x, lastPoint.y, nextNumberCell.x, nextNumberCell.y)) {
+          return { x: nextNumberCell.x, y: nextNumberCell.y };
+        }
       }
     }
 
-    // Otherwise suggest any unfilled empty cell
-    if (unfilledCells.length > 0) {
-      return { x: unfilledCells[0].x, y: unfilledCells[0].y };
+    // Otherwise suggest any adjacent unfilled empty cell
+    const lastPoint = this.currentPath[this.currentPath.length - 1];
+    const adjacentCells = this.getAdjacentCells(lastPoint.x, lastPoint.y);
+    const selectableAdjacent = adjacentCells.filter(cell => 
+      cell.type !== 'wall' && !cell.isInPath
+    );
+    
+    if (selectableAdjacent.length > 0) {
+      return { x: selectableAdjacent[0].x, y: selectableAdjacent[0].y };
     }
 
     return null;
@@ -316,14 +452,21 @@ export class ZipGameEngine {
   }
 
   private canReachAllTargets(numbers: NumberCell[], cells: GridCell[]): boolean {
-    // Since we can now jump to any cell, reachability is much simpler
-    // We can reach any unvisited cell as long as it's not a wall
-    const unreachableCells = cells.filter(cell => cell.type === 'wall');
-    return unreachableCells.length === 0; // All non-wall cells are reachable
+    // For adjacency-based movement, we need proper pathfinding
+    const lastPoint = this.currentPath[this.currentPath.length - 1];
+    
+    // Check if we can reach all unvisited numbers in sequence
+    for (const numberCell of numbers.sort((a, b) => a.number - b.number)) {
+      if (!this.canReach(lastPoint.x, lastPoint.y, numberCell.x, numberCell.y)) {
+        return false;
+      }
+    }
+    
+    return true;
   }
 
   private canReach(fromX: number, fromY: number, toX: number, toY: number): boolean {
-    // Simple BFS pathfinding
+    // Simple BFS pathfinding for adjacent movement
     const queue: { x: number; y: number }[] = [{ x: fromX, y: fromY }];
     const visited = new Set<string>();
     visited.add(`${fromX},${fromY}`);
