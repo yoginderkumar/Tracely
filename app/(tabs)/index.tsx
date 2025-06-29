@@ -1,10 +1,11 @@
-import GameScreen from '@/screens/GameScreen';
+import ZipGameScreen from '@/screens/ZipScreen';
 import { StyleSheet, View } from 'react-native';
+import 'react-native-gesture-handler';
 
 export default function HomeScreen() {
   return (
     <View style={styles.container}>
-      <GameScreen />
+      <ZipGameScreen />
     </View>
   );
 }

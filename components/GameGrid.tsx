@@ -1,13 +1,12 @@
 // src/components/GameGrid.tsx
+import gameStyles from '@/styles/gameStyles';
 import { colors } from '@/styles/globalStyles';
 import { CompletedPath, RenderableNumberDotData } from '@/types';
-import React, { useRef } from 'react'; // Import useRef
-import { PanResponder, StyleSheet, View } from 'react-native'; // Import PanResponder
+import React, { useRef } from 'react';
+import { PanResponder, StyleSheet, View } from 'react-native';
 import { Svg } from 'react-native-svg';
-import gameStyles from '../styles/gameStyles';
 import GameLine from './GameLine';
 import NumberDot from './NumberDot';
-
 
 interface GameGridProps {
   gridSize?: { rows: number; cols: number };
@@ -15,7 +14,6 @@ interface GameGridProps {
   onDotPress: (dotNumber: number, position: { x: number; y: number }) => void;
   currentDrawingPath: { x: number; y: number }[];
   completedPaths: CompletedPath[];
-  // New props for touch events
   onPanStart: (x: number, y: number) => void;
   onPanMove: (x: number, y: number) => void;
   onPanRelease: () => void;
@@ -27,9 +25,9 @@ const GameGrid: React.FC<GameGridProps> = ({
   onDotPress,
   currentDrawingPath,
   completedPaths,
-  onPanStart, // Destructure new prop
-  onPanMove,  // Destructure new prop
-  onPanRelease, // Destructure new prop
+  onPanStart,
+  onPanMove,
+  onPanRelease,
 }) => {
   const { rows, cols } = gridSize;
 
@@ -48,7 +46,7 @@ const GameGrid: React.FC<GameGridProps> = ({
     if (gridRef.current) {
       gridRef.current.measure((fx, fy, width, height, px, py) => {
         gridLayout.current = { x: px, y: py, width, height };
-        console.log('GameGrid Layout Measured:', gridLayout.current); // <--- ADD THIS LOG
+        console.log('GameGrid Layout Measured:', gridLayout.current);
       });
     }
   };
@@ -59,42 +57,38 @@ const GameGrid: React.FC<GameGridProps> = ({
     for (let i = 1; i < pixels.length; i++) {
       path += ` L${pixels[i].x} ${pixels[i].y}`;
     }
-    console.log('Generated SVG Path:', path); // <--- ADD THIS LOG
+    console.log('Generated SVG Path:', path);
     return path;
   };
 
-
   const currentPathSvg = pixelsToSvgPath(currentDrawingPath);
 
-  // --- NEW: PanResponder Setup ---
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: (evt, gestureState) => true,
-      onStartShouldSetPanResponderCapture: (evt, gestureState) => true,
+      onStartShouldSetPanResponderCapture: (evt, gestureState) => false, // Allow dot presses
 
       onMoveShouldSetPanResponder: (evt, gestureState) => true,
       onMoveShouldSetPanResponderCapture: (evt, gestureState) => true,
 
       onPanResponderGrant: (evt, gestureState) => {
-        console.log('PanResponder Grant: Touch started at screen coords:', gestureState.x0, gestureState.y0); // <--- ADD THIS LOG
+        console.log('PanResponder Grant: Touch started at screen coords:', gestureState.x0, gestureState.y0);
         if (gridLayout.current) {
           const touchX = gestureState.x0 - gridLayout.current.x;
           const touchY = gestureState.y0 - gridLayout.current.y;
-          console.log('PanResponder Grant: Touch relative to grid:', touchX, touchY); // <--- ADD THIS LOG
+          console.log('PanResponder Grant: Touch relative to grid:', touchX, touchY);
           onPanStart(touchX, touchY);
         }
       },
       onPanResponderMove: (evt, gestureState) => {
-        // console.log('PanResponder Move: Touch at screen coords:', gestureState.moveX, gestureState.moveY); // <--- ADD THIS LOG (uncomment only if needed, can be noisy)
         if (gridLayout.current) {
           const touchX = gestureState.moveX - gridLayout.current.x;
           const touchY = gestureState.moveY - gridLayout.current.y;
-          // console.log('PanResponder Move: Touch relative to grid:', touchX, touchY); // <--- ADD THIS LOG (uncomment only if needed, can be noisy)
           onPanMove(touchX, touchY);
         }
       },
       onPanResponderRelease: (evt, gestureState) => {
-        console.log('PanResponder Release: Touch ended'); // <--- ADD THIS LOG
+        console.log('PanResponder Release: Touch ended');
         onPanRelease();
       },
     })
@@ -107,7 +101,7 @@ const GameGrid: React.FC<GameGridProps> = ({
       style={gameStyles.gameGridContainer}
       {...panResponder.panHandlers}
     >
-      {/* Optional: Render actual grid lines/cells if you want them visually */}
+      {/* Optional: Render grid cells for visual reference */}
       {Array.from({ length: rows }).map((_, rIdx) => (
         Array.from({ length: cols }).map((_, cIdx) => (
           <View
@@ -118,8 +112,9 @@ const GameGrid: React.FC<GameGridProps> = ({
               top: rIdx * cellHeight,
               width: cellWidth,
               height: cellHeight,
-              // borderWidth: 0.5,
-              // borderColor: '#555',
+              borderWidth: 0.5,
+              borderColor: colors.gridBorder,
+              opacity: 0.3,
             }}
           />
         ))
@@ -128,9 +123,6 @@ const GameGrid: React.FC<GameGridProps> = ({
       <Svg style={StyleSheet.absoluteFillObject}>
         {/* Render completed paths */}
         {completedPaths.map((completedPath, index) => (
-          // For now, assume pixelsToSvgPath can correctly draw the completed path.
-          // This part will need more sophisticated logic to handle multiple segments forming a path.
-          // A simpler approach for now:
           completedPath.segments.map((segment, segIndex) => (
             <GameLine
               key={`completed-path-${index}-${segIndex}`}
@@ -142,7 +134,7 @@ const GameGrid: React.FC<GameGridProps> = ({
         ))}
 
         {/* Render the line currently being drawn */}
-        {currentDrawingPath.length > 0 && (
+        {currentDrawingPath.length > 1 && (
           <GameLine
             path={currentPathSvg}
             color={colors.primaryHighlight}
@@ -174,4 +166,5 @@ const GameGrid: React.FC<GameGridProps> = ({
     </View>
   );
 };
+
 export default GameGrid;

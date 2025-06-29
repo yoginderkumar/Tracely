@@ -1,42 +1,49 @@
 // src/utils/levelData.ts
 import { NumberDotData } from "@/types";
 
-
-
-// Define the type for a single level
 export interface Level {
   id: number;
   gridSize: { rows: number; cols: number };
   numbers: NumberDotData[];
 }
 
-// Example Level Data
+// Example Level Data - Updated to match your screenshot
 export const levels: Level[] = [
   {
     id: 1,
     gridSize: { rows: 6, cols: 6 },
     numbers: [
-      { id: 1, position: { x: 1, y: 1 } }, // x is column, y is row (0-indexed)
-      { id: 2, position: { x: 3, y: 1 }, isStart: true }, // This '2' is a start for a sequence 2-3-4...
-      { id: 3, position: { x: 3, y: 3 } },
-      { id: 4, position: { x: 1, y: 3 } },
-      { id: 5, position: { x: 5, y: 5 } },
-      { id: 6, position: { x: 0, y: 0 } },
-      // Add more numbers as per your level design
-      // Remember: A sequence starts from an `isStart: true` dot and continues sequentially
-      // The game will implicitly try to connect 1->2->3... or from a specific start point.
-      // For now, let's just place the dots. The actual pathfinding/validation comes later.
+      { id: 1, position: { x: 1, y: 2 } }, // Row 2, Col 1
+      { id: 2, position: { x: 3, y: 1 }, isStart: true }, // Row 1, Col 3 (highlighted in screenshot)
+      { id: 3, position: { x: 3, y: 3 } }, // Row 3, Col 3  
+      { id: 4, position: { x: 1, y: 3 } }, // Row 3, Col 1
+      { id: 5, position: { x: 5, y: 5 } }, // Row 5, Col 5
+      { id: 6, position: { x: 0, y: 0 } }, // Row 0, Col 0
     ],
   },
-  // You can add more levels here later
   {
     id: 2,
     gridSize: { rows: 5, cols: 5 },
     numbers: [
-        { id: 1, position: { x: 0, y: 0 } },
-        { id: 2, position: { x: 4, y: 4 } },
-        { id: 3, position: { x: 2, y: 1 } },
-        { id: 4, position: { x: 3, y: 0 } },
+      { id: 1, position: { x: 0, y: 0 } },
+      { id: 2, position: { x: 4, y: 0 } },
+      { id: 3, position: { x: 2, y: 2 } },
+      { id: 4, position: { x: 0, y: 4 } },
+      { id: 5, position: { x: 4, y: 4 } },
+    ]
+  },
+  {
+    id: 3,
+    gridSize: { rows: 6, cols: 6 },
+    numbers: [
+      { id: 1, position: { x: 0, y: 1 } },
+      { id: 2, position: { x: 2, y: 0 } },
+      { id: 3, position: { x: 4, y: 1 } },
+      { id: 4, position: { x: 5, y: 3 } },
+      { id: 5, position: { x: 3, y: 5 } },
+      { id: 6, position: { x: 1, y: 4 } },
+      { id: 7, position: { x: 0, y: 2 } },
+      { id: 8, position: { x: 2, y: 3 } },
     ]
   }
 ];

@@ -1,10 +1,8 @@
 // src/components/GameLine.tsx
+import { colors } from '@/styles/globalStyles';
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import { Path, Svg } from 'react-native-svg';
-import { colors } from '../styles/globalStyles';
+import { Path } from 'react-native-svg';
 
-// Define the interface for GameLine's props
 interface GameLineProps {
   path: string; // SVG path data (e.g., "M10 10 L50 50")
   color?: string; // Color of the line
@@ -15,28 +13,27 @@ interface GameLineProps {
 
 const GameLine: React.FC<GameLineProps> = ({
   path,
-  color = colors.primaryHighlight, // Default to a prominent highlight color
-  strokeWidth = 10,
+  color = colors.primaryHighlight,
+  strokeWidth = 8,
   isComplete = false,
   isCurrentDrawing = false,
 }) => {
+  // Don't render empty paths
+  if (!path || path.length === 0) {
+    return null;
+  }
+
   return (
-    // Note: Svg component needs to wrap Path/G elements.
-    // It's often better to render Svg *once* in a parent (like GameGrid)
-    // and then render multiple G/Path elements as children within that single Svg.
-    // For now, we'll keep it here, but be aware of this optimization for performance.
-    <Svg style={StyleSheet.absoluteFillObject}>
-      <Path
-        d={path} // The SVG path data
-        stroke={color}
-        strokeWidth={strokeWidth}
-        fill="none" // Lines should not be filled
-        strokeLinecap="round" // Round ends of lines
-        strokeLinejoin="round" // Round corners of lines
-        // Optional: Add opacity for current drawing or completed lines
-        opacity={isCurrentDrawing ? 0.8 : isComplete ? 1 : 0.6}
-      />
-    </Svg>
+    <Path
+      d={path}
+      stroke={color}
+      strokeWidth={strokeWidth}
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      opacity={isCurrentDrawing ? 0.7 : isComplete ? 1 : 0.6}
+    />
   );
 };
+
 export default GameLine;
